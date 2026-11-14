@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Poin Poker</title>
+<script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<style>
+:root{--bg:#0b3d2e;--bg2:#08291f;--card:#0f4d3a;--line:#1d6b52;--tx:#f4f1e8;--mut:#9cc7b6;--gold:#f2c14e;--red:#e5594f;--ok:#4cc38a}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg2);color:var(--tx);font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+body{min-height:100vh;padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom)}
+.wrap{max-width:480px;margin:0 auto;padding:14px}
+h1{font-size:22px;margin:8px 0 2px;text-align:center}
+.sub{color:var(--mut);text-align:center;font-size:13px;margin-bottom:16px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:12px}
+label{display:block;font-size:12px;color:var(--mut);margin:8px 0 4px}
+input{width:100%;padding:12px;border-radius:10px;border:1px solid var(--line);background:var(--bg2);color:var(--tx);font-size:16px}
+button{font:inherit;cursor:pointer;border:0;border-radius:10px;padding:12px 14px;font-weight:600;background:var(--gold);color:#2a2100}
+button.sec{background:transparent;color:var(--tx);border:1px solid var(--line)}
+button.red{background:var(--red);color:#fff}
+button.ok{background:var(--ok);color:#06281b}
+button:disabled{opacity:.4}
+.row{display:flex;gap:8px}.row>*{flex:1}
+.hide{display:none!important}
+.top{display:flex;justify-content:space-between;align-items:center;font-size:13px;color:var(--mut);margin-bottom:8px}
+.code{background:var(--bg2);border:1px dashed var(--gold);color:var(--gold);padding:4px 10px;border-radius:8px;font-weight:700;letter-spacing:3px}
+.pot{text-align:center;padding:16px}
+.pot small{color:var(--mut);display:block}
+.pot b{font-size:40px;color:var(--gold)}
+.pl{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border-radius:12px;background:var(--bg2);margin-bottom:8px;border:1px solid transparent}
+.pl.me{border-color:var(--gold)}
+.pl.fold{opacity:.45}
+.pl .n{font-weight:700}.pl .n i{font-style:normal;font-size:11px;color:var(--mut);font-weight:400;margin-left:6px}
+.pl .c{text-align:right}.pl .c b{font-size:18px}.pl .c small{display:block;color:var(--mut);font-size:12px}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--ok);margin-right:6px}
+.dot.off{background:#777}
+.quick{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:8px 0}
+.log{font-size:12px;color:var(--mut);max-height:110px;overflow:auto}
+.log div{padding:2px 0}
+.modal{position:fixed;inset:0;background:#000a;display:flex;align-items:center;justify-content:center;padding:16px;z-index:9}
+.modal .card{width:100%;max-width:400px;margin:0}
+.chk{display:flex;align-items:center;gap:10px;padding:10px;background:var(--bg2);border-radius:10px;margin-bottom:6px}
+.chk input{width:20px;height:20px}
+.msg{text-align:center;color:var(--red);font-size:13px;min-height:18px;margin-top:8px}
+.status{text-align:center;font-size:12px;color:var(--red);margin-bottom:8px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<!-- LOBBY -->
+<div id="lobby">
+  <h1>♠ Poin Poker ♥</h1>
+  <div class="sub">Catat bet bareng, real-time, maksimal 4 pemain</div>
+  <div class="card">
+    <label>Nama kamu</label>
+    <input id="name" maxlength="14" placeholder="contoh: Budi">
+    <label>Chip awal (untuk buat room baru)</label>
+    <input id="start" type="number" inputmode="numeric" value="1000">
+    <div class="row" style="margin-top:12px"><button id="btnCreate">Buat Room</button></div>
+    <div id="resume" class="hide" style="margin-top:8px"><button class="sec" id="btnResume" style="width:100%"></button></div>
+  </div>
+  <div class="card">
+    <label>Kode room dari temanmu</label>
+    <input id="code" maxlength="4" placeholder="ABCD" style="text-transform:uppercase;letter-spacing:4px;text-align:center">
+    <div class="row" style="margin-top:12px"><button class="sec" id="btnJoin">Gabung Room</button></div>
+  </div>
+  <div class="msg" id="lobbyMsg"></div>
+</div>
+
+<!-- GAME -->
+<div id="game" class="hide">
+  <div class="top"><span>Room <span class="code" id="roomCode"></span></span><span id="roundLbl"></span></div>
+  <div class="status hide" id="status"></div>
+  <div class="card pot"><small>POT</small><b id="pot">0</b></div>
+  <div id="players"></div>
+
+  <div class="card" id="actions">
+    <div class="row">
+      <button class="sec" id="aCheck">Check</button>
+      <button class="ok" id="aCall">Call</button>
+      <button class="red" id="aFold">Fold</button>
+    </div>
+    <div class="quick" id="quick"></div>
+    <div class="row">
+      <input id="amt" type="number" inputmode="numeric" placeholder="Jumlah bet / raise">
+      <button id="aBet" style="flex:0 0 90px">Bet</button>
+    </div>
+    <div class="row" style="margin-top:8px"><button class="sec" id="aAllin">All-in</button></div>
+  </div>
+
+  <div class="row">
+    <button class="sec" id="aNext">Ronde bet berikutnya</button>
+    <button class="ok" id="aWin">Bagi Pot 🏆</button>
+  </div>
+  <div class="row" style="margin-top:8px">
+    <button class="red" id="aReset">Reset Semua</button>
+    <button class="sec" id="aLeave">Keluar</button>
+  </div>
+
+  <div class="card" style="margin-top:12px"><div class="log" id="log"></div></div>
+</div>
+</div>
+
+<div class="modal hide" id="modal"><div class="card" id="modalBody"></div></div>
+
+<script>
+const $=id=>document.getElementById(id);
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmt=n=>Number(n).toLocaleString('id-ID');
+const PREFIX='pkrpts-v1-';
+const safe={get(k){try{return localStorage.getItem(k)}catch(e){return null}},set(k,v){try{localStorage.setItem(k,v)}catch(e){}},del(k){try{localStorage.removeItem(k)}catch(e){}}};
+
+let cid=safe.get('pkr_cid');
+if(!cid){cid=Math.random().toString(36).slice(2)+Date.now().toString(36);safe.set('pkr_cid',cid);}
+$('name').value=safe.get('pkr_name')||'';
+
+let peer=null,isHost=false,roomCode='',hostConn=null,conns={},state=null,closing=false;
+
+/* ---------- LOBBY ---------- */
+const saved=(()=>{try{return JSON.parse(safe.get('pkr_host'))}catch(e){return null}})();
+if(saved&&saved.code&&saved.state){$('resume').classList.remove('hide');$('btnResume').textContent='Lanjutkan room '+saved.code+' (sebagai host)';}
+
+function lobbyMsg(t){$('lobbyMsg').textContent=t||''}
+function getName(){const n=$('name').value.trim();if(!n){lobbyMsg('Isi nama dulu ya');return null}safe.set('pkr_name',n);return n}
+function randCode(){const a='ABCDEFGHJKLMNPQRSTUVWXYZ';let s='';for(let i=0;i<4;i++)s+=a[Math.floor(Math.random()*a.length)];return s}
+
+$('btnCreate').onclick=()=>{
+  const n=getName();if(!n)return;
+  const start=Math.max(1,parseInt($('start').value)||1000);
+  startHost(randCode(),{players:[{cid,name:n,chips:start,bet:0,folded:false,connected:true}],pot:0,start,round:1,log:['Room dibuat. Chip awal '+fmt(start)]});
+};
+$('btnResume').onclick=()=>{
+  const me=saved.state.players.find(p=>p.cid===cid);
+  if(!me){lobbyMsg('Data room tidak cocok dengan perangkat ini');return}
+  saved.state.players.forEach(p=>p.connected=(p.cid===cid));
+  startHost(saved.code,saved.state);
+};
+$('btnJoin').onclick=()=>{
+  const n=getName();if(!n)return;
+  const c=$('code').value.trim().toUpperCase();
+  if(c.length!==4){lobbyMsg('Kode room 4 huruf');return}
+  startClient(c,n);
+};
+
+/* ---------- HOST ---------- */
+function startHost(code,st,tries=0){
+  lobbyMsg('Membuat room...');
+  isHost=true;roomCode=code;state=st;
+  if(peer)peer.destroy();
+  peer=new Peer(PREFIX+code);
+  peer.on('open',()=>{lobbyMsg('');showGame();persist();render();});
+  peer.on('error',e=>{
+    if(e.type==='unavailable-id'&&tries<5&&!saved){startHost(randCode(),st,tries+1)}
+    else if(e.type==='unavailable-id'){lobbyMsg('Room itu masih aktif di tempat lain. Coba lagi sebentar lagi.')}
+    else lobbyMsg('Koneksi error: '+e.type);
+  });
+  peer.on('disconnected',()=>{try{peer.reconnect()}catch(e){}});
+  peer.on('connection',conn=>{
+    conn.on('data',m=>hostReceive(conn,m));
+    conn.on('close',()=>{
+      for(const k in conns){if(conns[k]===conn){delete conns[k];const p=state.players.find(x=>x.cid===k);if(p)p.connected=false;}}
+      hostChanged();
+    });
+  });
+}
+function hostReceive(conn,m){
+  if(!m||!m.t)return;
+  if(m.t==='join'){
+    let p=state.players.find(x=>x.cid===m.cid);
+    if(!p){
+      if(state.players.length>=4){conn.send({t:'full'});return}
+      p={cid:m.cid,name:String(m.name).slice(0,14),chips:state.start,bet:0,folded:false,connected:true};
+      state.players.push(p);state.log.unshift(p.name+' bergabung');
+    }else{p.connected=true;p.name=String(m.name).slice(0,14);}
+    conns[m.cid]=conn;
+    hostChanged();
+  }else if(m.t==='act'){
+    if(!conns[m.cid]||conns[m.cid]!==conn)return;
+    apply(m.cid,m.a);
+  }
+}
+function apply(who,a){
+  const p=state.players.find(x=>x.cid===who);if(!p)return;
+  const maxBet=Math.max(0,...state.players.map(x=>x.bet));
+  const put=amt=>{amt=Math.max(0,Math.min(Math.floor(amt)||0,p.chips));if(!amt)return 0;p.chips-=amt;p.bet+=amt;state.pot+=amt;return amt};
+  const L=s=>state.log.unshift(s);
+  switch(a.k){
+    case 'bet':{if(p.folded)return;const x=put(a.amt);if(x)L(p.name+' bet '+fmt(x)+(p.chips===0?' (ALL-IN)':''));break}
+    case 'call':{if(p.folded)return;const x=put(maxBet-p.bet);L(x?p.name+' call '+fmt(x):p.name+' check');break}
+    case 'check':{if(p.folded)return;L(p.name+' check');break}
+    case 'allin':{if(p.folded)return;const x=put(p.chips);if(x)L(p.name+' ALL-IN '+fmt(x));break}
+    case 'fold':{p.folded=true;L(p.name+' fold');break}
+    case 'next':{state.players.forEach(x=>x.bet=0);L('— Ronde bet berikutnya —');break}
+    case 'win':{
+      const ids=(a.to||[]).filter(i=>state.players.some(x=>x.cid===i));
+      if(!ids.length||state.pot<=0)return;
+      const share=Math.floor(state.pot/ids.length);let rem=state.pot-share*ids.length;
+      const names=[];
+      ids.forEach(i=>{const w=state.players.find(x=>x.cid===i);w.chips+=share+(rem>0?rem:0);rem=0;names.push(w.name)});
+      L('🏆 '+names.join(' & ')+' menang pot '+fmt(state.pot));
+      state.pot=0;state.round++;state.players.forEach(x=>{x.bet=0;x.folded=false});break}
+    case 'reset':{
+      if(who!==roomHostCid())return;
+      state.players.forEach(x=>{x.chips=state.start;x.bet=0;x.folded=false});state.pot=0;state.round=1;state.log=['Semua direset. Chip: '+fmt(state.start)];break}
+  }
+  state.log=state.log.slice(0,40);
+  hostChanged();
+}
+function roomHostCid(){return state.players[0].cid}
+function hostChanged(){
+  if(state.players[0])state.players[0].connected=true;
+  persist();render();
+  for(const k in conns){try{conns[k].send({t:'state',s:state})}catch(e){}}
+}
+function persist(){if(isHost)safe.set('pkr_host',JSON.stringify({code:roomCode,state}))}
+
+/* ---------- CLIENT ---------- */
+function startClient(code,name,attempt=0){
+  lobbyMsg('Menyambung ke room '+code+'...');
+  isHost=false;roomCode=code;closing=false;
+  if(peer)peer.destroy();
+  peer=new Peer();
+  peer.on('open',()=>{
+    hostConn=peer.connect(PREFIX+code,{reliable:true});
+    let opened=false;
+    const to=setTimeout(()=>{if(!opened){lobbyMsg('Room tidak ditemukan / host belum online');if(!$('game').classList.contains('hide'))setStatus('Menyambung ulang...')}},8000);
+    hostConn.on('open',()=>{opened=true;clearTimeout(to);setStatus('');hostConn.send({t:'join',cid,name})});
+    hostConn.on('data',m=>{
+      if(m.t==='state'){state=m.s;lobbyMsg('');if($('game').classList.contains('hide'))showGame();render()}
+      if(m.t==='full'){lobbyMsg('Room penuh (maks 4 pemain)');leave(true)}
+    });
+    hostConn.on('close',()=>{if(closing)return;setStatus('Terputus dari host. Menyambung ulang...');setTimeout(()=>startClient(code,name,attempt+1),2000)});
+  });
+  peer.on('error',e=>{
+    if(closing)return;
+    if(e.type==='peer-unavailable'){
+      if(!$('game').classList.contains('hide')){setStatus('Host offline. Mencoba lagi...');setTimeout(()=>startClient(code,name,attempt+1),3000)}
+      else lobbyMsg('Room tidak ditemukan. Cek kodenya / pastikan host sudah buat room.');
+    }else lobbyMsg('Koneksi error: '+e.type);
+  });
+}
+function setStatus(t){const s=$('status');s.textContent=t;s.classList.toggle('hide',!t)}
+
+/* ---------- ACTIONS ---------- */
+function act(a){if(isHost)apply(cid,a);else if(hostConn&&hostConn.open)hostConn.send({t:'act',cid,a})}
+$('aCheck').onclick=()=>act({k:'check'});
+$('aCall').onclick=()=>act({k:'call'});
+$('aFold').onclick=()=>act({k:'fold'});
+$('aAllin').onclick=()=>{if(confirm('All-in?'))act({k:'allin'})};
+$('aBet').onclick=()=>{const v=parseInt($('amt').value);if(v>0){act({k:'bet',amt:v});$('amt').value=''}};
+$('aNext').onclick=()=>act({k:'next'});
+$('aWin').onclick=()=>openWin();
+$('aReset').onclick=()=>{
+  if(!isHost){alert('Hanya host (pembuat room) yang bisa reset.');return}
+  if(confirm('Reset semua chip & pot ke awal?'))act({k:'reset'});
+};
+$('aLeave').onclick=()=>{if(confirm('Keluar dari room?'))leave(false)};
+
+function openWin(){
+  if(!state||state.pot<=0){alert('Pot masih kosong');return}
+  const live=state.players;
+  $('modalBody').innerHTML='<b>Siapa yang menang?</b><div style="color:var(--mut);font-size:12px;margin:4px 0 10px">Pilih lebih dari satu untuk bagi rata (split pot).</div>'+
+    live.map(p=>'<label class="chk"><input type="checkbox" value="'+esc(p.cid)+'"> '+esc(p.name)+(p.folded?' (fold)':'')+'</label>').join('')+
+    '<div class="row" style="margin-top:10px"><button class="sec" id="mCancel">Batal</button><button class="ok" id="mOk">Bagi Pot</button></div>';
+  $('modal').classList.remove('hide');
+  $('mCancel').onclick=()=>$('modal').classList.add('hide');
+  $('mOk').onclick=()=>{
+    const ids=[...$('modalBody').querySelectorAll('input:checked')].map(i=>i.value);
+    if(!ids.length)return;
+    $('modal').classList.add('hide');act({k:'win',to:ids});
+  };
+}
+function leave(keepLobbyMsg){
+  closing=true;
+  if(peer){peer.destroy();peer=null}
+  if(isHost)safe.del('pkr_host');
+  state=null;conns={};hostConn=null;isHost=false;
+  $('game').classList.add('hide');$('lobby').classList.remove('hide');
+  $('resume').classList.add('hide');
+  if(!keepLobbyMsg)lobbyMsg('');
+}
+
+/* ---------- RENDER ---------- */
+function showGame(){$('lobby').classList.add('hide');$('game').classList.remove('hide');$('roomCode').textContent=roomCode}
+function render(){
+  if(!state)return;
+  const me=state.players.find(p=>p.cid===cid);
+  $('pot').textContent=fmt(state.pot);
+  $('roundLbl').textContent='Hand #'+state.round;
+  const maxBet=Math.max(0,...state.players.map(x=>x.bet));
+  $('players').innerHTML=state.players.map(p=>
+    '<div class="pl'+(p.cid===cid?' me':'')+(p.folded?' fold':'')+'">'+
+    '<div class="n"><span class="dot'+(p.connected?'':' off')+'"></span>'+esc(p.name)+(p.cid===state.players[0].cid?'<i>host</i>':'')+(p.cid===cid?'<i>kamu</i>':'')+(p.folded?'<i>fold</i>':'')+'</div>'+
+    '<div class="c"><b>'+fmt(p.chips)+'</b><small>bet: '+fmt(p.bet)+'</small></div></div>').join('');
+  if(me){
+    const need=Math.max(0,maxBet-me.bet);
+    $('aCall').textContent=need>0?'Call '+fmt(Math.min(need,me.chips)):'Check';
+    $('aCheck').classList.toggle('hide',need>0);
+    const dis=me.folded||me.chips===0;
+    ['aCheck','aCall','aFold','aBet','aAllin'].forEach(i=>$(i).disabled=dis&&i!=='aFold'?true:(i==='aFold'?me.folded:false));
+    const base=Math.max(10,Math.round(state.start/50/10)*10);
+    $('quick').innerHTML=[1,2,5,10].map(m=>'<button class="sec" data-v="'+base*m+'">+'+fmt(base*m)+'</button>').join('');
+    $('quick').querySelectorAll('button').forEach(b=>b.onclick=()=>{$('amt').value=(parseInt($('amt').value)||0)+parseInt(b.dataset.v)});
+  }
+  $('aReset').classList.toggle('hide',!isHost);
+  $('log').innerHTML=state.log.map(l=>'<div>'+esc(l)+'</div>').join('');
+}
+</script>
+</body>
+</html>
